@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import {
   ArrowUpRight,
   Bookmark,
@@ -11,7 +11,6 @@ import {
   Compass,
   LoaderCircle,
   MapPin,
-  Sparkles,
   Users,
   Wallet,
   X,
@@ -49,6 +48,117 @@ const budgetLabels: Record<TravelStyle, string> = {
   balanced: 'A good balance',
   comfortable: 'A little comfort',
   luxury: 'Make it special',
+}
+
+type SelectOption = {
+  value: string
+  label: string
+}
+
+function FilterDropdown({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string
+  value: string
+  options: SelectOption[]
+  onChange: (value: string) => void
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const listId = useId()
+  const selectedOption = options.find((option) => option.value === value)
+
+  useEffect(() => {
+    if (!isOpen) return
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setIsOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOnOutsidePointer)
+    requestAnimationFrame(() => {
+      rootRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus()
+    })
+    return () => document.removeEventListener('pointerdown', closeOnOutsidePointer)
+  }, [isOpen])
+
+  function moveOptionFocus(event: KeyboardEvent<HTMLDivElement>) {
+    const options = Array.from(rootRef.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? [])
+    if (!options.length) return
+
+    const currentIndex = options.indexOf(document.activeElement as HTMLElement)
+    let nextIndex: number
+    switch (event.key) {
+      case 'ArrowDown':
+        nextIndex = (currentIndex + 1) % options.length
+        break
+      case 'ArrowUp':
+        nextIndex = (currentIndex - 1 + options.length) % options.length
+        break
+      case 'Home':
+        nextIndex = 0
+        break
+      case 'End':
+        nextIndex = options.length - 1
+        break
+      case 'Escape':
+        event.preventDefault()
+        setIsOpen(false)
+        triggerRef.current?.focus()
+        return
+      default:
+        return
+    }
+    event.preventDefault()
+    options[nextIndex].focus()
+  }
+
+  return (
+    <div className="filter-select" ref={rootRef}>
+      <button
+        ref={triggerRef}
+        className="filter-trigger"
+        type="button"
+        aria-label={label}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-controls={listId}
+        onClick={() => setIsOpen((open) => !open)}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            setIsOpen(true)
+          }
+        }}
+      >
+        <span>{selectedOption?.label ?? value}</span>
+        <ChevronDown className={isOpen ? 'dropdown-chevron open' : 'dropdown-chevron'} size={13} />
+      </button>
+      {isOpen && (
+        <div className="filter-menu" id={listId} role="listbox" aria-label={label} onKeyDown={moveOptionFocus}>
+          {options.map((option) => (
+            <button
+              className="filter-option"
+              key={option.value}
+              type="button"
+              role="option"
+              aria-selected={option.value === value}
+              onClick={() => {
+                onChange(option.value)
+                setIsOpen(false)
+                triggerRef.current?.focus()
+              }}
+            >
+              <span>{option.label}</span>
+              {option.value === value && <Check size={14} />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function formatBudget(amount: number, currency: string) {
@@ -148,7 +258,11 @@ function TripItinerary({
 export default function Page() {
   const [prompt, setPrompt] = useState('')
   const [durationDays, setDurationDays] = useState(5)
+  const [customDurationDays, setCustomDurationDays] = useState('5')
+  const [isCustomDuration, setIsCustomDuration] = useState(false)
   const [travelers, setTravelers] = useState(2)
+  const [customTravelers, setCustomTravelers] = useState('2')
+  const [isCustomTravelers, setIsCustomTravelers] = useState(false)
   const [budget, setBudget] = useState<TravelStyle>('balanced')
   const [interests, setInterests] = useState<string[]>([])
   const [plan, setPlan] = useState<TripPlan | null>(null)
@@ -237,7 +351,13 @@ export default function Page() {
     setPlan(null)
     setSavedTripId(null)
 
-    const preferences: TripPreferences = { prompt, durationDays, travelers, budget, interests }
+    const preferences: TripPreferences = {
+      prompt,
+      durationDays: isCustomDuration ? Number(customDurationDays) : durationDays,
+      travelers: isCustomTravelers ? Number(customTravelers) : travelers,
+      budget,
+      interests,
+    }
     try {
       const response = await fetch('/api/plan', {
         method: 'POST',
@@ -445,30 +565,94 @@ export default function Page() {
               rows={2}
             />
             <div className="preference-row">
-              <label className="select-wrap">
+              <div className="select-wrap">
                 <Clock3 size={15} />
-                <span className="sr-only">Trip length</span>
-                <select value={durationDays} onChange={(event) => setDurationDays(Number(event.target.value))}>
-                  {[3, 5, 7, 10, 14].map((days) => <option key={days} value={days}>{days} days</option>)}
-                </select>
-                <ChevronDown size={13} />
-              </label>
-              <label className="select-wrap">
+                <FilterDropdown
+                  label="Trip length"
+                  value={isCustomDuration ? 'custom' : String(durationDays)}
+                  options={[
+                    ...[3, 5, 7, 10, 14].map((days) => ({ value: String(days), label: `${days} days` })),
+                    { value: 'custom', label: 'Custom' },
+                  ]}
+                  onChange={(value) => {
+                    if (value === 'custom') {
+                      setCustomDurationDays(String(durationDays))
+                      setIsCustomDuration(true)
+                    } else {
+                      setDurationDays(Number(value))
+                      setIsCustomDuration(false)
+                    }
+                  }}
+                />
+                {isCustomDuration && (
+                  <label className="custom-value-wrap">
+                    <span className="sr-only">Custom trip length in days</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={21}
+                      step={1}
+                      required
+                      value={customDurationDays}
+                      onChange={(event) => {
+                        setCustomDurationDays(event.target.value)
+                        if (event.target.value) setDurationDays(Number(event.target.value))
+                      }}
+                    />
+                    <span>days</span>
+                  </label>
+                )}
+              </div>
+              <div className="select-wrap">
                 <Users size={15} />
-                <span className="sr-only">Number of travelers</span>
-                <select value={travelers} onChange={(event) => setTravelers(Number(event.target.value))}>
-                  {[1, 2, 3, 4, 5, 6, 8, 10, 12].map((count) => <option key={count} value={count}>{count} {count === 1 ? 'traveler' : 'travelers'}</option>)}
-                </select>
-                <ChevronDown size={13} />
-              </label>
-              <label className="select-wrap budget-select">
+                <FilterDropdown
+                  label="Number of travelers"
+                  value={isCustomTravelers ? 'custom' : String(travelers)}
+                  options={[
+                    ...[1, 2, 3, 4, 5, 6, 8, 10, 12].map((count) => ({
+                      value: String(count),
+                      label: `${count} ${count === 1 ? 'traveler' : 'travelers'}`,
+                    })),
+                    { value: 'custom', label: 'Custom' },
+                  ]}
+                  onChange={(value) => {
+                    if (value === 'custom') {
+                      setCustomTravelers(String(travelers))
+                      setIsCustomTravelers(true)
+                    } else {
+                      setTravelers(Number(value))
+                      setIsCustomTravelers(false)
+                    }
+                  }}
+                />
+                {isCustomTravelers && (
+                  <label className="custom-value-wrap">
+                    <span className="sr-only">Custom number of travelers</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={12}
+                      step={1}
+                      required
+                      value={customTravelers}
+                      onChange={(event) => {
+                        setCustomTravelers(event.target.value)
+                        if (event.target.value) setTravelers(Number(event.target.value))
+                      }}
+                    />
+                    <span>{Number(customTravelers) === 1 ? 'traveler' : 'people'}</span>
+                  </label>
+                )}
+              </div>
+              <div className="select-wrap budget-select">
                 <Wallet size={15} />
-                <span className="sr-only">Budget style</span>
-                <select value={budget} onChange={(event) => setBudget(event.target.value as TravelStyle)}>
-                  {Object.entries(budgetLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </select>
-                <ChevronDown size={13} />
-              </label>
+                <FilterDropdown
+                  label="Budget style"
+                  value={budget}
+                  options={Object.entries(budgetLabels).map(([value, label]) => ({ value, label }))}
+                  onChange={(value) => setBudget(value as TravelStyle)}
+                />
+              </div>
               <button className="plan-btn" type="submit" disabled={isGenerating}>
                 {isGenerating ? <><LoaderCircle className="spin" size={16} />Finding your way</> : <>Plan my trip <ChevronRight size={17} /></>}
               </button>
@@ -501,7 +685,6 @@ export default function Page() {
               </button>
             ))}
           </div>
-          <p className="privacy-note"><Sparkles size={13} /> Your trip notes go to Google Gemini to make this first draft.</p>
         </div>
 
         {errorMessage && <p className="error-message" role="alert">{errorMessage}</p>}

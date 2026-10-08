@@ -16,3 +16,5 @@
 If Supabase redirects back with `error_code=unexpected_failure` and `Unable to exchange external code`, the failure occurs when Supabase exchanges the Google authorization code for tokens. Check that the client ID and client secret saved in Supabase are from the same Google Cloud **Web application** OAuth client. If you rotated or recreated the Google client secret, update the secret in Supabase too. Also confirm that Google's **Authorized redirect URI** exactly matches the callback URL shown by Supabase (not the app's `localhost` URL). After changing provider settings, try a fresh sign-in in a private window; authorization codes can only be exchanged once.
 
 Itinerary generation works without signing in. Signing in with Google or an email magic link is needed to save and revisit trips. A generated trip is sent to Google Gemini to create its itinerary; trips saved by signed-in users are stored in Supabase.
+
+The trip-length and traveler-count controls include quick presets and a **Custom** option. Custom values support 1–21 days and 1–12 travelers.
