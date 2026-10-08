@@ -22,3 +22,5 @@ The trip-length and traveler-count controls include quick presets and a **Custom
 Saved itineraries can be edited inline. While editing, use **Rethink this day** to regenerate a single day with additional instructions; save changes to update the existing trip in Supabase.
 
 The planner also accepts optional travel dates. Select a start and return date (up to 21 inclusive days); the trip length stays in sync with the selected range, and Gemini can account for the season and day of week when suggesting activities. Dates are stored inside the itinerary JSON, so this feature does not require another database migration.
+
+Itinerary destination maps use OpenStreetMap tiles and its Nominatim geocoder. No map API key is required; the map includes OpenStreetMap attribution. Geocoding results are cached for 24 hours, and use is subject to the [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/).

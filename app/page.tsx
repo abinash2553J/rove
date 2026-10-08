@@ -23,6 +23,7 @@ import {
 import type { User } from '@supabase/supabase-js'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
 import { isTripPlan, type ItineraryDay, type TravelStyle, type TripPlan, type TripPreferences } from '@/lib/trip-plan'
+import { DestinationMap } from '@/app/components/destination-map'
 
 type SavedTrip = {
   id: string
@@ -431,6 +432,8 @@ function TripItinerary({
         {plan.startDate && plan.endDate && <span><CalendarDays size={16} />{formatDateRange(plan.startDate, plan.endDate)}</span>}
         <span><Wallet size={16} />About {formatBudget(plan.estimatedBudgetPerPerson, plan.currency)} per person</span>
       </div>
+
+      <DestinationMap destination={plan.destination} />
 
       <div className="day-list">
         {plan.days.map((day: ItineraryDay) => (
