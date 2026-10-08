@@ -1,6 +1,6 @@
 # ROVE backend setup
 
-1. Run the SQL files in `migrations/` in timestamp order in the Supabase SQL Editor. `20261008060000_create_trip_plans.sql` creates the saved-trip table and owner-only read/insert/delete policies. `20261008070000_allow_trip_plan_updates.sql` adds owner-only updates so edited itineraries can be saved. If the first migration was already applied, run only the second one.
+1. Run the SQL files in `migrations/` in timestamp order in the Supabase SQL Editor. `20261008060000_create_trip_plans.sql` creates the saved-trip table and owner-only read/insert/delete policies. `20261008070000_allow_trip_plan_updates.sql` adds owner-only updates so edited itineraries can be saved. `20261008080000_add_public_trip_sharing.sql` adds private-by-default share links and a restricted RPC for public reads. If earlier migrations were already applied, run any newer migrations that have not yet been applied.
 2. Copy the repository-root `.env.example` to `.env.local` in the repository root. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` from the Supabase project API settings. The legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` variable is also supported.
 3. Create a Google AI Studio API key and set it as `GEMINI_API_KEY`. This key is only used by the server-side `/api/plan` route; do not prefix it with `NEXT_PUBLIC_`.
 4. To enable Google sign-in:
@@ -24,3 +24,5 @@ Saved itineraries can be edited inline. While editing, use **Rethink this day** 
 The planner also accepts optional travel dates. Select a start and return date (up to 21 inclusive days); the trip length stays in sync with the selected range, and Gemini can account for the season and day of week when suggesting activities. Dates are stored inside the itinerary JSON, so this feature does not require another database migration.
 
 Itinerary destination maps use OpenStreetMap tiles and its Nominatim geocoder. No map API key is required; the map includes OpenStreetMap attribution. Geocoding results are cached for 24 hours, and use is subject to the [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/).
+
+To share an itinerary, sign in and use **Share trip**. ROVE saves unsaved itineraries before creating a private, unguessable link. Anyone with that link can view the itinerary; use **Stop sharing** to revoke it. Shared reads go through the `get_shared_trip` database function, which only returns the trip matching the exact share token and does not grant anonymous table access. Apply the public trip sharing migration before enabling this feature.

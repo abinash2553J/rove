@@ -6,11 +6,13 @@ import {
   Bookmark,
   CalendarDays,
   Check,
+  Copy,
   ChevronLeft,
   ChevronDown,
   ChevronRight,
   Clock3,
   Compass,
+  Link2,
   LoaderCircle,
   MapPin,
   Pencil,
@@ -32,6 +34,7 @@ type SavedTrip = {
   prompt: string
   itinerary: TripPlan
   created_at: string
+  share_token: string | null
 }
 
 type EditableDayField = keyof Omit<ItineraryDay, 'day'>
@@ -358,7 +361,12 @@ function TripItinerary({
   isSaved,
   hasUnsavedChanges,
   isSaving,
+  isSharing,
+  shareToken,
+  shareError,
   onSave,
+  onShare,
+  onRevokeShare,
   onPlanChange,
   onRegenerateDay,
   onStartOver,
@@ -367,16 +375,26 @@ function TripItinerary({
   isSaved: boolean
   hasUnsavedChanges: boolean
   isSaving: boolean
+  isSharing: boolean
+  shareToken: string | null
+  shareError: string
   onSave: () => void
+  onShare: () => void
+  onRevokeShare: () => void
   onPlanChange: (plan: TripPlan) => void
   onRegenerateDay: (dayNumber: number, instruction: string) => Promise<ItineraryDay>
   onStartOver: () => void
 }) {
   const [isEditing, setIsEditing] = useState(false)
+  const [shareUrl, setShareUrl] = useState('')
   const [regeneratingDay, setRegeneratingDay] = useState<number | null>(null)
   const [regenerationInstruction, setRegenerationInstruction] = useState('')
   const [isRegenerating, setIsRegenerating] = useState(false)
   const [regenerationError, setRegenerationError] = useState('')
+
+  useEffect(() => {
+    setShareUrl(shareToken ? `${window.location.origin}/share/${shareToken}` : '')
+  }, [shareToken])
 
   function updatePlan(updates: Partial<TripPlan>) {
     onPlanChange({ ...plan, ...updates })
@@ -416,6 +434,10 @@ function TripItinerary({
           ) : <p className="itinerary-summary">{plan.summary}</p>}
         </div>
         <div className="itinerary-actions">
+          <button className="edit-button share-button" type="button" onClick={onShare} disabled={isSharing}>
+            {isSharing ? <LoaderCircle className="spin" size={14} /> : shareToken ? <Copy size={14} /> : <Link2 size={14} />}
+            {isSharing ? 'Preparing link' : shareToken ? 'Copy link' : isSaved ? 'Share trip' : 'Save & share'}
+          </button>
           <button className="edit-button" type="button" onClick={() => setIsEditing((editing) => !editing)}>
             <Pencil size={14} />{isEditing ? 'Done editing' : 'Edit itinerary'}
           </button>
@@ -425,6 +447,16 @@ function TripItinerary({
           </button>
         </div>
       </div>
+      {shareToken && (
+        <div className="share-status" role="status">
+          <label>
+            <span>This trip is available to anyone with the link.</span>
+            <input aria-label="Public trip link" readOnly value={shareUrl} onFocus={(event) => event.currentTarget.select()} />
+          </label>
+          <button type="button" onClick={onRevokeShare}>Stop sharing</button>
+        </div>
+      )}
+      {shareError && <p className="share-error" role="alert">{shareError}</p>}
 
       <div className="trip-facts">
         <span><MapPin size={16} />{plan.destination}</span>
@@ -540,7 +572,10 @@ export default function Page() {
   const [planPrompt, setPlanPrompt] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isSharing, setIsSharing] = useState(false)
   const [savedTripId, setSavedTripId] = useState<string | null>(null)
+  const [shareToken, setShareToken] = useState<string | null>(null)
+  const [shareError, setShareError] = useState('')
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [user, setUser] = useState<User | null>(null)
@@ -621,7 +656,7 @@ export default function Page() {
     let cancelled = false
     supabase
       .from('trip_plans')
-      .select('id,title,destination,prompt,itinerary,created_at')
+      .select('id,title,destination,prompt,itinerary,created_at,share_token')
       .order('created_at', { ascending: false })
       .limit(20)
       .returns<SavedTrip[]>()
@@ -647,6 +682,8 @@ export default function Page() {
     setIsGenerating(true)
     setPlan(null)
     setSavedTripId(null)
+    setShareToken(null)
+    setShareError('')
     setHasUnsavedChanges(false)
 
     const preferences: TripPreferences = {
@@ -677,22 +714,22 @@ export default function Page() {
     }
   }
 
-  async function handleSave() {
+  async function handleSave(): Promise<string | null> {
     if (!user) {
       setAuthError('')
       setAuthMessage('')
       setAuthOpen(true)
-      return
+      return null
     }
-    if (!plan) return
+    if (!plan) return null
     if (!isTripPlan(plan)) {
       setErrorMessage('Finish the required trip title, summary, and itinerary fields before saving.')
-      return
+      return null
     }
     const supabase = getSupabaseBrowserClient()
     if (!supabase) {
       setErrorMessage('Saving trips needs Supabase configured. Add the public Supabase URL and key, then reload.')
-      return
+      return null
     }
 
     setIsSaving(true)
@@ -705,15 +742,17 @@ export default function Page() {
         prompt: planPrompt || 'Edited saved trip',
       }
       const result = savedTripId
-        ? await supabase.from('trip_plans').update(values).eq('id', savedTripId).select('id').single()
-        : await supabase.from('trip_plans').insert(values).select('id').single()
+        ? await supabase.from('trip_plans').update(values).eq('id', savedTripId).select('id,share_token').single()
+        : await supabase.from('trip_plans').insert(values).select('id,share_token').single()
 
       if (result.error) {
         console.error('Could not save trip:', result.error)
         setErrorMessage('This trip could not be saved. Check the Supabase setup and try again.')
+        return null
       } else {
         const tripId = result.data.id
         setSavedTripId(tripId)
+        setShareToken(result.data.share_token)
         setHasUnsavedChanges(false)
         setSavedTrips((current) => {
           const updatedTrip: SavedTrip = {
@@ -723,17 +762,105 @@ export default function Page() {
             prompt: planPrompt,
             itinerary: plan,
             created_at: current.find((trip) => trip.id === tripId)?.created_at ?? new Date().toISOString(),
+            share_token: result.data.share_token,
           }
           return savedTripId
             ? current.map((trip) => trip.id === tripId ? updatedTrip : trip)
             : [updatedTrip, ...current]
         })
+        return tripId
       }
     } catch (error) {
       console.error('Could not save trip:', error)
       setErrorMessage('This trip could not be saved because Supabase could not be reached.')
+      return null
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  async function handleShare() {
+    setShareError('')
+    setErrorMessage('')
+    let tripId = savedTripId
+    if (!tripId) tripId = await handleSave()
+    if (!tripId) return
+
+    const supabase = getSupabaseBrowserClient()
+    if (!supabase) {
+      setShareError('Sharing needs Supabase configured. Add the public Supabase URL and key, then reload.')
+      return
+    }
+
+    setIsSharing(true)
+    try {
+      let token = shareToken
+      if (!token) {
+        token = crypto.randomUUID()
+        const { data, error } = await supabase
+          .from('trip_plans')
+          .update({ share_token: token })
+          .eq('id', tripId)
+          .select('share_token')
+          .single()
+        if (error) {
+          console.error('Could not enable trip sharing:', error)
+          setShareError('This trip could not be shared. Apply the public trip sharing migration and try again.')
+          return
+        }
+        token = data.share_token
+        if (!token) {
+          setShareError('Supabase did not return a share link. Please try again.')
+          return
+        }
+        setShareToken(token)
+        setSavedTrips((current) => current.map((trip) => trip.id === tripId ? { ...trip, share_token: token } : trip))
+      }
+
+      const shareUrl = `${window.location.origin}/share/${token}`
+      try {
+        await navigator.clipboard.writeText(shareUrl)
+      } catch (error) {
+        console.error('Could not copy the shared trip link:', error)
+        setShareError('Sharing is on. Copy the link from the field below.')
+      }
+    } catch (error) {
+      console.error('Could not share trip:', error)
+      setShareError('This trip could not be shared because Supabase could not be reached.')
+    } finally {
+      setIsSharing(false)
+    }
+  }
+
+  async function handleRevokeShare() {
+    if (!savedTripId) return
+    const supabase = getSupabaseBrowserClient()
+    if (!supabase) {
+      setShareError('Sharing could not be turned off because Supabase is not configured.')
+      return
+    }
+
+    setShareError('')
+    setIsSharing(true)
+    try {
+      const { error } = await supabase
+        .from('trip_plans')
+        .update({ share_token: null })
+        .eq('id', savedTripId)
+        .select('id')
+        .single()
+      if (error) {
+        console.error('Could not turn off trip sharing:', error)
+        setShareError('Sharing could not be turned off. Please try again.')
+        return
+      }
+      setShareToken(null)
+      setSavedTrips((current) => current.map((trip) => trip.id === savedTripId ? { ...trip, share_token: null } : trip))
+    } catch (error) {
+      console.error('Could not turn off trip sharing:', error)
+      setShareError('Sharing could not be turned off because Supabase could not be reached.')
+    } finally {
+      setIsSharing(false)
     }
   }
 
@@ -845,6 +972,8 @@ export default function Page() {
     setPlanPrompt(trip.prompt)
     setPrompt('')
     setSavedTripId(trip.id)
+    setShareToken(trip.share_token)
+    setShareError('')
     setHasUnsavedChanges(false)
     scrollToItinerary()
   }
@@ -853,6 +982,8 @@ export default function Page() {
     setPlan(null)
     setPlanPrompt('')
     setSavedTripId(null)
+    setShareToken(null)
+    setShareError('')
     setHasUnsavedChanges(false)
     setErrorMessage('')
     promptRef.current?.focus()
@@ -1043,7 +1174,12 @@ export default function Page() {
             isSaved={Boolean(savedTripId)}
             hasUnsavedChanges={hasUnsavedChanges}
             isSaving={isSaving}
+            isSharing={isSharing}
+            shareToken={shareToken}
+            shareError={shareError}
             onSave={handleSave}
+            onShare={handleShare}
+            onRevokeShare={handleRevokeShare}
             onPlanChange={(updatedPlan) => {
               setPlan(updatedPlan)
               setHasUnsavedChanges(true)

@@ -180,7 +180,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .itinerary-actions { display: flex; flex: none; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .edit-button { display: inline-flex; align-items: center; gap: 7px; margin-top: 8px; border: 1px solid var(--line); border-radius: 999px; padding: 10px 13px; background: transparent; color: var(--soft); font-size: 11px; transition: .18s ease; }
 .edit-button:hover { border-color: rgba(181, 118, 63, .5); background: rgba(181, 118, 63, .08); color: var(--ink); }
+.edit-button:disabled { cursor: wait; opacity: .65; }
 .edit-button svg { color: var(--accent); }
+.share-status { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-top: 16px; border: 1px solid rgba(181, 118, 63, .2); border-radius: 12px; padding: 12px; background: rgba(181, 118, 63, .06); }
+.share-status label { display: grid; flex: 1; gap: 6px; min-width: 0; color: var(--soft); font-size: 10px; }
+.share-status input { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 8px 9px; background: rgba(255, 250, 242, .85); color: var(--ink); font-size: 11px; }
+.share-status input:focus-visible { outline-offset: 1px; }
+.share-status > button { flex: none; border: 0; padding: 7px 2px; background: transparent; color: #8a3528; font-size: 10px; }
+.share-status > button:hover { text-decoration: underline; text-underline-offset: 2px; }
+.share-error { margin: 10px 0 0; color: #8a3528; font-size: 11px; line-height: 1.5; }
 .itinerary-heading h2, .section-heading h2, .how-section h2, .faq-section h2 { margin: 13px 0 0; font: 600 clamp(28px, 4vw, 42px)/1.06 'Space Grotesk', sans-serif; letter-spacing: -.04em; }
 .itinerary-heading .section-note, .section-heading .section-note { margin-bottom: 3px; }
 .itinerary-summary { max-width: 600px; margin: 12px 0 0; color: var(--soft); font-size: 14px; line-height: 1.65; }
@@ -247,6 +255,22 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .text-button { display: inline-flex; align-items: center; gap: 7px; border: 0; padding: 4px 0; background: transparent; color: var(--soft); font-size: 12px; }
 .text-button:hover { color: var(--ink); }
 .start-over { margin-top: 20px; }
+
+.shared-page { min-height: 100vh; padding: 24px clamp(18px, 5vw, 72px) 0; background: var(--paper); }
+.shared-shell { max-width: 940px; margin: 0 auto; }
+.shared-nav { display: flex; align-items: center; justify-content: space-between; min-height: 42px; color: var(--soft); font-size: 11px; }
+.shared-itinerary { margin: 54px auto 0; border: 1px solid rgba(43, 36, 29, .12); border-radius: 22px; padding: clamp(22px, 4.5vw, 44px); background: rgba(255, 250, 242, .95); box-shadow: 0 16px 45px -28px rgba(43, 36, 29, .28); }
+.shared-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 22px; }
+.shared-heading h1 { margin: 13px 0 0; font: 600 clamp(30px, 4.5vw, 48px)/1.04 'Space Grotesk', sans-serif; letter-spacing: -.04em; }
+.shared-heading > div > p:last-child { max-width: 610px; margin: 12px 0 0; color: var(--soft); font-size: 14px; line-height: 1.65; }
+.shared-cta { display: inline-flex; flex: none; align-items: center; gap: 7px; font-size: 11px; }
+.shared-itinerary .day-content h2 { margin: 0; font: 600 18px/1.3 'Space Grotesk', sans-serif; letter-spacing: -.02em; }
+.shared-itinerary .practical-notes h2 { margin: 0; font: 600 14px/1.3 'Space Grotesk', sans-serif; }
+.shared-back { margin-top: 20px; }
+.shared-message { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; min-height: 55vh; color: var(--soft); text-align: center; }
+.shared-error h1 { margin: 0; color: var(--ink); font: 600 clamp(30px, 4vw, 42px)/1.1 'Space Grotesk', sans-serif; }
+.shared-error p { max-width: 480px; margin: 0 0 7px; font-size: 13px; line-height: 1.6; }
+.shared-footer { padding: 22px 0 26px; color: var(--soft); font-size: 10px; text-align: center; }
 
 .saved-section, .discover-section, .how-section, .faq-section { position: relative; z-index: 1; max-width: 1040px; margin-inline: auto; scroll-margin-top: 40px; }
 .saved-section { padding: 25px 0 86px; }
@@ -343,9 +367,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .chips button { padding: 7px 10px; font-size: 10px; }
   .itinerary { width: 100%; margin-top: 40px; padding: 23px 17px; }
   .itinerary-heading { display: block; }
-  .itinerary-actions { justify-content: flex-start; margin-top: 14px; }
+  .itinerary-actions { justify-content: flex-start; gap: 6px; margin-top: 14px; }
   .itinerary-actions .edit-button, .itinerary-actions .save-button { margin-top: 0; }
+  .itinerary-actions .edit-button, .itinerary-actions .save-button { padding-inline: 10px; font-size: 10px; }
+  .share-status { align-items: stretch; flex-direction: column; gap: 6px; }
+  .share-status > button { align-self: flex-start; }
   .itinerary-heading h2 { font-size: 31px; }
+  .shared-page { padding-inline: 18px; }
+  .shared-nav > span { font-size: 10px; }
+  .shared-itinerary { margin-top: 36px; padding: 23px 17px; }
+  .shared-heading { flex-direction: column; gap: 15px; }
+  .shared-cta { align-self: flex-start; }
   .save-button { margin-top: 17px; }
   .trip-facts { gap: 11px 15px; }
   .trip-facts span { font-size: 10px; }
