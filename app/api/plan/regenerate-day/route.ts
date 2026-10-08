@@ -41,11 +41,15 @@ export async function POST(request: Request) {
   const currentDay = trip.days[dayIndex]
   const previousDay = trip.days[dayIndex - 1]
   const nextDay = trip.days[dayIndex + 1]
+  const travelDate = trip.startDate && trip.endDate
+    ? new Date(Date.parse(`${trip.startDate}T00:00:00Z`) + (currentDay.day - 1) * 86_400_000).toISOString().slice(0, 10)
+    : undefined
   const prompt = [
     'Revise exactly one day of this travel itinerary. Keep it realistic, geographically sensible, and consistent with the full trip.',
     'Do not invent exact opening hours, prices, or availability. Return only JSON matching the requested one-day schema.',
     `Destination: ${trip.destination}`,
     `Whole trip: ${trip.title}. ${trip.summary}`,
+    ...(travelDate ? [`Travel date for this day: ${travelDate}. Account for the season and day of week.`] : []),
     previousDay ? `Previous day for continuity: ${JSON.stringify(previousDay)}` : 'This is the first day of the trip.',
     `Day to revise: ${JSON.stringify(currentDay)}`,
     nextDay ? `Next day for continuity: ${JSON.stringify(nextDay)}` : 'This is the last day of the trip.',

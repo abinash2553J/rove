@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { isTripPlan, type TripPreferences } from '@/lib/trip-plan'
+import { isISODate, isTripPlan, type TripPreferences } from '@/lib/trip-plan'
 
 export const runtime = 'nodejs'
 
@@ -21,7 +21,11 @@ function isTripPreferences(value: unknown): value is TripPreferences {
     ['budget', 'balanced', 'comfortable', 'luxury'].includes(String(preferences.budget)) &&
     Array.isArray(preferences.interests) &&
     preferences.interests.length <= 8 &&
-    preferences.interests.every((interest) => typeof interest === 'string' && interest.length <= 40)
+    preferences.interests.every((interest) => typeof interest === 'string' && interest.length <= 40) &&
+    ((preferences.startDate === undefined && preferences.endDate === undefined) ||
+      (isISODate(preferences.startDate) && isISODate(preferences.endDate) &&
+        preferences.endDate >= preferences.startDate &&
+        Math.round((Date.parse(`${preferences.endDate}T00:00:00Z`) - Date.parse(`${preferences.startDate}T00:00:00Z`)) / 86_400_000) + 1 === preferences.durationDays))
   )
 }
 
@@ -49,6 +53,9 @@ export async function POST(request: Request) {
     'Return only JSON matching the requested response schema.',
     `Trip description: ${body.prompt.trim()}`,
     `Duration: ${body.durationDays} days`,
+    ...(body.startDate && body.endDate
+      ? [`Travel dates: ${body.startDate} to ${body.endDate}. Account for seasonal conditions and the day of the week, but do not invent live events or opening hours.`]
+      : []),
     `Travelers: ${body.travelers}`,
     `Budget style: ${body.budget}`,
     `Interests: ${body.interests.length ? body.interests.join(', ') : 'use the trip description'}`,
@@ -142,5 +149,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'The trip planner returned an incomplete itinerary. Please try again.' }, { status: 502 })
   }
 
-  return NextResponse.json({ plan: generated })
+  return NextResponse.json({
+    plan: {
+      ...generated,
+      ...(body.startDate && body.endDate ? { startDate: body.startDate, endDate: body.endDate } : {}),
+    },
+  })
 }

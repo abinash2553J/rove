@@ -4,7 +4,9 @@ import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent 
 import {
   ArrowUpRight,
   Bookmark,
+  CalendarDays,
   Check,
+  ChevronLeft,
   ChevronDown,
   ChevronRight,
   Clock3,
@@ -59,6 +61,162 @@ const budgetLabels: Record<TravelStyle, string> = {
 type SelectOption = {
   value: string
   label: string
+}
+
+type TripDates = {
+  startDate: string
+  endDate: string
+}
+
+const dayMilliseconds = 86_400_000
+const durationPresets = [3, 5, 7, 10, 14]
+
+function toDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function fromDateKey(value: string) {
+  const [year, month, day] = value.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+function addCalendarDays(date: Date, days: number) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days)
+}
+
+function formatDateRange(startDate: string, endDate: string) {
+  const formatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' })
+  return `${formatter.format(fromDateKey(startDate))} – ${formatter.format(fromDateKey(endDate))}`
+}
+
+function TripDatePicker({
+  dates,
+  onSelect,
+  onClear,
+}: {
+  dates: TripDates
+  onSelect: (dates: TripDates) => void
+  onClear: () => void
+}) {
+  const today = new Date()
+  const [isOpen, setIsOpen] = useState(false)
+  const [visibleMonth, setVisibleMonth] = useState(() => {
+    const selectedStart = dates.startDate ? fromDateKey(dates.startDate) : today
+    return new Date(selectedStart.getFullYear(), selectedStart.getMonth(), 1)
+  })
+  const [selectionMessage, setSelectionMessage] = useState('')
+  const rootRef = useRef<HTMLDivElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
+  const todayKey = toDateKey(today)
+  const monthLabel = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(visibleMonth)
+  const firstOfMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1)
+  const gridStart = addCalendarDays(firstOfMonth, -((firstOfMonth.getDay() + 6) % 7))
+  const calendarDays = Array.from({ length: 42 }, (_, index) => addCalendarDays(gridStart, index))
+  const previousMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() - 1, 1)
+  const cannotGoBack = previousMonth < new Date(today.getFullYear(), today.getMonth(), 1)
+
+  useEffect(() => {
+    if (!isOpen) return
+    requestAnimationFrame(() => popoverRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' }))
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setIsOpen(false)
+    }
+    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') setIsOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOnOutsidePointer)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePointer)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [isOpen])
+
+  function chooseDate(date: Date) {
+    const dateKey = toDateKey(date)
+    if (!dates.startDate || dates.endDate || dateKey < dates.startDate) {
+      onSelect({ startDate: dateKey, endDate: '' })
+      setSelectionMessage('Now choose your return date.')
+      return
+    }
+
+    const dayCount = Math.round((Date.parse(`${dateKey}T00:00:00Z`) - Date.parse(`${dates.startDate}T00:00:00Z`)) / dayMilliseconds) + 1
+    if (dayCount > 21) {
+      setSelectionMessage('Choose dates within 21 days of your start date.')
+      return
+    }
+
+    onSelect({ startDate: dates.startDate, endDate: dateKey })
+    setSelectionMessage('')
+    setIsOpen(false)
+  }
+
+  return (
+    <div className="date-picker" ref={rootRef}>
+      <div className={`date-range-control${dates.startDate && dates.endDate ? ' has-dates' : ''}`}>
+        <button
+          className="date-range-trigger"
+          type="button"
+          aria-label={dates.startDate && dates.endDate ? `Travel dates ${formatDateRange(dates.startDate, dates.endDate)}` : 'Choose travel dates'}
+          aria-haspopup="dialog"
+          aria-expanded={isOpen}
+          onClick={() => setIsOpen((open) => !open)}
+        >
+          <CalendarDays size={16} />
+          <span>{dates.startDate && dates.endDate ? formatDateRange(dates.startDate, dates.endDate) : dates.startDate ? `${new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(fromDateKey(dates.startDate))} · Choose return` : 'Add travel dates'}</span>
+          <ChevronDown className={isOpen ? 'dropdown-chevron open' : 'dropdown-chevron'} size={13} />
+        </button>
+        {dates.startDate && dates.endDate && (
+          <button className="date-clear" type="button" aria-label="Clear travel dates" onClick={onClear}>
+            <X size={13} />
+          </button>
+        )}
+      </div>
+      {isOpen && (
+        <div className="calendar-popover" ref={popoverRef} role="dialog" aria-label="Choose your travel dates">
+          <div className="calendar-heading">
+            <div>
+              <strong>{monthLabel}</strong>
+              <span>{dates.startDate && !dates.endDate ? 'Choose your return date' : 'Choose when you want to go'}</span>
+            </div>
+            <div className="calendar-navigation">
+              <button type="button" aria-label="Previous month" disabled={cannotGoBack} onClick={() => setVisibleMonth(previousMonth)}><ChevronLeft size={16} /></button>
+              <button type="button" aria-label="Next month" onClick={() => setVisibleMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1))}><ChevronRight size={16} /></button>
+            </div>
+          </div>
+          <div className="calendar-grid" role="group" aria-label={monthLabel}>
+            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((weekday, index) => <span className="calendar-weekday" key={`${weekday}-${index}`}>{weekday}</span>)}
+            {calendarDays.map((date) => {
+              const dateKey = toDateKey(date)
+              const inVisibleMonth = date.getMonth() === visibleMonth.getMonth()
+              const exceedsTripLimit = Boolean(dates.startDate && !dates.endDate && dateKey >= dates.startDate && dateKey > toDateKey(addCalendarDays(fromDateKey(dates.startDate), 20)))
+              const isDisabled = !inVisibleMonth || dateKey < todayKey || exceedsTripLimit
+              const isStart = dateKey === dates.startDate
+              const isEnd = Boolean(dates.endDate && dateKey === dates.endDate)
+              const isInRange = Boolean(dates.endDate && dates.startDate && dateKey > dates.startDate && dateKey < dates.endDate)
+              return (
+                <button
+                  key={dateKey}
+                  className={`calendar-day${isStart || isEnd ? ' range-edge' : ''}${isInRange ? ' in-range' : ''}${dateKey === todayKey ? ' today' : ''}`}
+                  type="button"
+                  aria-label={new Intl.DateTimeFormat(undefined, { dateStyle: 'full' }).format(date)}
+                  aria-pressed={isStart || isEnd}
+                  disabled={isDisabled}
+                  onClick={() => chooseDate(date)}
+                >
+                  {date.getDate()}
+                </button>
+              )
+            })}
+          </div>
+          <div className="calendar-footer">
+            <span role="status">{selectionMessage || (dates.startDate && dates.endDate ? `${formatDateRange(dates.startDate, dates.endDate)} · ${Math.round((Date.parse(`${dates.endDate}T00:00:00Z`) - Date.parse(`${dates.startDate}T00:00:00Z`)) / dayMilliseconds) + 1} days` : 'Trips can be up to 21 days.')}</span>
+            {dates.startDate && <button className="calendar-clear" type="button" onClick={() => { onClear(); setSelectionMessage('') }}>Clear</button>}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function FilterDropdown({
@@ -270,6 +428,7 @@ function TripItinerary({
       <div className="trip-facts">
         <span><MapPin size={16} />{plan.destination}</span>
         <span><Clock3 size={16} />{plan.durationDays} days</span>
+        {plan.startDate && plan.endDate && <span><CalendarDays size={16} />{formatDateRange(plan.startDate, plan.endDate)}</span>}
         <span><Wallet size={16} />About {formatBudget(plan.estimatedBudgetPerPerson, plan.currency)} per person</span>
       </div>
 
@@ -372,6 +531,8 @@ export default function Page() {
   const [isCustomTravelers, setIsCustomTravelers] = useState(false)
   const [budget, setBudget] = useState<TravelStyle>('balanced')
   const [interests, setInterests] = useState<string[]>([])
+  const [tripDates, setTripDates] = useState<TripDates>({ startDate: '', endDate: '' })
+  const [dateError, setDateError] = useState('')
   const [plan, setPlan] = useState<TripPlan | null>(null)
   const [planPrompt, setPlanPrompt] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
@@ -389,6 +550,27 @@ export default function Page() {
   const [authProvider, setAuthProvider] = useState<'google' | 'email' | null>(null)
   const [supabaseConfigured, setSupabaseConfigured] = useState(true)
   const promptRef = useRef<HTMLTextAreaElement>(null)
+
+  function setTripDuration(days: number) {
+    setDurationDays(days)
+    setCustomDurationDays(String(days))
+    setIsCustomDuration(!durationPresets.includes(days))
+    if (tripDates.startDate && tripDates.endDate) {
+      const endDate = toDateKey(addCalendarDays(fromDateKey(tripDates.startDate), days - 1))
+      setTripDates((current) => ({ ...current, endDate }))
+    }
+  }
+
+  function handleTripDatesChange(dates: TripDates) {
+    setTripDates(dates)
+    setDateError('')
+    if (!dates.endDate) return
+
+    const days = Math.round((Date.parse(`${dates.endDate}T00:00:00Z`) - Date.parse(`${dates.startDate}T00:00:00Z`)) / dayMilliseconds) + 1
+    setDurationDays(days)
+    setCustomDurationDays(String(days))
+    setIsCustomDuration(!durationPresets.includes(days))
+  }
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -454,6 +636,10 @@ export default function Page() {
 
   async function handleGenerate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (tripDates.startDate && !tripDates.endDate) {
+      setDateError('Choose a return date or clear the start date before planning.')
+      return
+    }
     setErrorMessage('')
     setIsGenerating(true)
     setPlan(null)
@@ -466,6 +652,7 @@ export default function Page() {
       travelers: isCustomTravelers ? Number(customTravelers) : travelers,
       budget,
       interests,
+      ...(tripDates.startDate && tripDates.endDate ? tripDates : {}),
     }
     try {
       const response = await fetch('/api/plan', {
@@ -728,7 +915,7 @@ export default function Page() {
                       setCustomDurationDays(String(durationDays))
                       setIsCustomDuration(true)
                     } else {
-                      setDurationDays(Number(value))
+                      setTripDuration(Number(value))
                       setIsCustomDuration(false)
                     }
                   }}
@@ -745,7 +932,7 @@ export default function Page() {
                       value={customDurationDays}
                       onChange={(event) => {
                         setCustomDurationDays(event.target.value)
-                        if (event.target.value) setDurationDays(Number(event.target.value))
+                        if (event.target.value && event.target.validity.valid) setTripDuration(Number(event.target.value))
                       }}
                     />
                     <span>days</span>
@@ -806,6 +993,15 @@ export default function Page() {
                 {isGenerating ? <><LoaderCircle className="spin" size={16} />Finding your way</> : <>Plan my trip <ChevronRight size={17} /></>}
               </button>
             </div>
+            <div className="trip-dates-row">
+              <TripDatePicker
+                dates={tripDates}
+                onSelect={handleTripDatesChange}
+                onClear={() => { setTripDates({ startDate: '', endDate: '' }); setDateError('') }}
+              />
+              <span>Optional · dates shape the seasonal suggestions</span>
+            </div>
+            {dateError && <p className="date-error" role="alert">{dateError}</p>}
             <fieldset className="interest-field">
               <legend>What would you love more of?</legend>
               <div className="interest-list">

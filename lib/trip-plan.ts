@@ -6,6 +6,8 @@ export type TripPreferences = {
   travelers: number
   budget: TravelStyle
   interests: string[]
+  startDate?: string
+  endDate?: string
 }
 
 export type ItineraryDay = {
@@ -22,6 +24,8 @@ export type TripPlan = {
   destination: string
   summary: string
   durationDays: number
+  startDate?: string
+  endDate?: string
   estimatedBudgetPerPerson: number
   currency: string
   days: ItineraryDay[]
@@ -46,6 +50,13 @@ function isBoundedText(value: unknown, maxLength: number): value is string {
   return typeof value === 'string' && value.trim().length > 0 && value.length <= maxLength
 }
 
+export function isISODate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const [year, month, day] = value.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+}
+
 export function isTripPlan(value: unknown): value is TripPlan {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
   const plan = value as Record<string, unknown>
@@ -53,7 +64,13 @@ export function isTripPlan(value: unknown): value is TripPlan {
     isBoundedText(plan.title, 200) &&
     isBoundedText(plan.destination, 200) &&
     isBoundedText(plan.summary, 1400) &&
-    typeof plan.durationDays === 'number' && Number.isInteger(plan.durationDays) &&
+    typeof plan.durationDays === 'number' && Number.isInteger(plan.durationDays) && plan.durationDays >= 1 && plan.durationDays <= 21 &&
+    (plan.startDate === undefined || isISODate(plan.startDate)) &&
+    (plan.endDate === undefined || isISODate(plan.endDate)) &&
+    ((plan.startDate === undefined && plan.endDate === undefined) ||
+      (typeof plan.startDate === 'string' && typeof plan.endDate === 'string' &&
+        plan.endDate >= plan.startDate &&
+        Math.round((Date.parse(`${plan.endDate}T00:00:00Z`) - Date.parse(`${plan.startDate}T00:00:00Z`)) / 86_400_000) + 1 === plan.durationDays)) &&
     typeof plan.estimatedBudgetPerPerson === 'number' &&
     Number.isFinite(plan.estimatedBudgetPerPerson) && plan.estimatedBudgetPerPerson >= 0 &&
     typeof plan.currency === 'string' && /^[A-Z]{3}$/.test(plan.currency) &&

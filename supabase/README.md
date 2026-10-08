@@ -20,3 +20,5 @@ Itinerary generation works without signing in. Signing in with Google or an emai
 The trip-length and traveler-count controls include quick presets and a **Custom** option. Custom values support 1–21 days and 1–12 travelers.
 
 Saved itineraries can be edited inline. While editing, use **Rethink this day** to regenerate a single day with additional instructions; save changes to update the existing trip in Supabase.
+
+The planner also accepts optional travel dates. Select a start and return date (up to 21 inclusive days); the trip length stays in sync with the selected range, and Gemini can account for the season and day of week when suggesting activities. Dates are stored inside the itinerary JSON, so this feature does not require another database migration.

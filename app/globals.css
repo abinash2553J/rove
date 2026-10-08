@@ -71,7 +71,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .nav-cta { padding: 11px 16px; }
 .nav-cta:hover, .plan-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 7px 16px rgba(43, 36, 29, .16); background: #43372b; }
 
-.hero { position: relative; z-index: 1; display: flex; align-items: center; flex-direction: column; text-align: center; padding: clamp(75px, 12vh, 144px) 0 96px; }
+.hero { position: relative; z-index: 2; display: flex; align-items: center; flex-direction: column; text-align: center; padding: clamp(75px, 12vh, 144px) 0 96px; }
 .kicker, .section-note { display: flex; align-items: center; gap: 12px; margin: 0; color: var(--soft); font: 400 10px/1.5 'JetBrains Mono', monospace; letter-spacing: .19em; }
 .kicker { margin-bottom: 21px; }
 .kicker span, .section-note span { width: 23px; height: 1px; flex: none; background: var(--accent); }
@@ -129,6 +129,39 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .budget-select .filter-trigger { max-width: 142px; }
 .plan-btn { min-height: 43px; margin-left: auto; padding: 0 16px; border-radius: 13px; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .plan-btn svg { flex: none; }
+.trip-dates-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; color: var(--soft); font-size: 10px; }
+.date-picker { position: relative; z-index: 4; }
+.date-range-control { display: inline-flex; align-items: center; min-height: 37px; overflow: hidden; border: 1px solid rgba(43, 36, 29, .12); border-radius: 11px; background: rgba(255, 250, 242, .78); transition: border-color .18s ease, background .18s ease; }
+.date-range-control:hover, .date-range-control:focus-within, .date-range-control.has-dates { border-color: rgba(181, 118, 63, .45); background: var(--surface); }
+.date-range-trigger { display: inline-flex; align-items: center; gap: 8px; min-height: 35px; border: 0; padding: 0 10px; background: transparent; color: var(--ink); font-size: 11px; text-align: left; }
+.date-range-trigger > svg:first-child { flex: none; color: var(--accent); }
+.date-range-trigger > span { max-width: 205px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.date-range-trigger .dropdown-chevron { margin-left: 1px; }
+.date-clear { display: grid; width: 30px; height: 34px; flex: none; place-items: center; border: 0; border-left: 1px solid rgba(43, 36, 29, .09); background: transparent; color: var(--soft); }
+.date-clear:hover { background: rgba(181, 118, 63, .09); color: var(--ink); }
+.calendar-popover { position: absolute; z-index: 30; top: calc(100% + 8px); left: 0; width: 320px; max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain; border: 1px solid rgba(43, 36, 29, .13); border-radius: 16px; padding: 15px; background: var(--surface); box-shadow: 0 20px 50px -20px rgba(43, 36, 29, .42); text-align: left; }
+.calendar-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 13px; }
+.calendar-heading > div:first-child { display: grid; gap: 3px; }
+.calendar-heading strong { color: var(--ink); font: 600 15px/1.2 'Space Grotesk', sans-serif; }
+.calendar-heading span { color: var(--soft); font-size: 10px; }
+.calendar-navigation { display: flex; gap: 5px; }
+.calendar-navigation button { display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid var(--line); border-radius: 9px; background: rgba(255, 250, 242, .7); color: var(--soft); }
+.calendar-navigation button:hover:not(:disabled) { border-color: rgba(181, 118, 63, .45); background: rgba(181, 118, 63, .08); color: var(--ink); }
+.calendar-navigation button:disabled { cursor: default; opacity: .38; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px 0; }
+.calendar-weekday { display: grid; height: 27px; place-items: center; color: #96897b; font: 400 9px/1 'JetBrains Mono', monospace; }
+.calendar-day { position: relative; display: grid; width: 34px; height: 34px; justify-self: center; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--ink); font-size: 11px; font-variant-numeric: tabular-nums; transition: background .15s ease, color .15s ease; }
+.calendar-day:hover:not(:disabled):not(.range-edge) { background: rgba(181, 118, 63, .13); }
+.calendar-day.today:not(.range-edge) { box-shadow: inset 0 0 0 1px rgba(181, 118, 63, .55); }
+.calendar-day.in-range { border-radius: 0; background: rgba(181, 118, 63, .13); }
+.calendar-day.range-edge { background: var(--accent); color: #fffaf2; font-weight: 600; }
+.calendar-day:disabled { cursor: default; color: #c8beaf; }
+.calendar-day:focus-visible { z-index: 1; outline-offset: 0; }
+.calendar-footer { display: flex; align-items: center; justify-content: space-between; gap: 9px; min-height: 34px; margin-top: 10px; border-top: 1px solid var(--line); padding-top: 9px; color: var(--soft); font-size: 10px; }
+.calendar-footer [role='status'] { line-height: 1.45; }
+.calendar-clear { flex: none; border: 0; padding: 4px 0 4px 7px; background: transparent; color: var(--accent); font-size: 10px; font-weight: 600; }
+.calendar-clear:hover { color: var(--ink); }
+.date-error { margin: 8px 0 0; color: #8a3528; font-size: 11px; line-height: 1.45; }
 .interest-field { margin: 13px 0 0; padding: 0; border: 0; }
 .interest-field legend { margin-bottom: 8px; color: var(--soft); font-size: 11px; }
 .interest-list { display: flex; flex-wrap: wrap; gap: 7px; }
@@ -284,6 +317,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .budget-select .filter-trigger { max-width: 110px; }
   .custom-value-wrap input { width: 42px; }
   .plan-btn { min-height: 40px; margin-top: 3px; padding-inline: 12px; font-size: 10px; }
+  .trip-dates-row { align-items: flex-start; flex-direction: column; gap: 6px; }
+  .calendar-popover { width: min(320px, calc(100vw - 48px)); }
   .interest-chip { padding: 6px 9px; }
   .chips { gap: 7px; }
   .chips button { padding: 7px 10px; font-size: 10px; }
