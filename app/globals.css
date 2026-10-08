@@ -144,9 +144,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 .itinerary { width: min(850px, 92vw); margin-top: 62px; padding: 31px clamp(20px, 4vw, 42px); border: 1px solid rgba(43, 36, 29, .12); border-radius: 22px; background: rgba(255, 250, 242, .95); box-shadow: 0 16px 45px -28px rgba(43, 36, 29, .28); text-align: left; scroll-margin-top: 28px; }
 .itinerary-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 22px; }
+.itinerary-actions { display: flex; flex: none; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.edit-button { display: inline-flex; align-items: center; gap: 7px; margin-top: 8px; border: 1px solid var(--line); border-radius: 999px; padding: 10px 13px; background: transparent; color: var(--soft); font-size: 11px; transition: .18s ease; }
+.edit-button:hover { border-color: rgba(181, 118, 63, .5); background: rgba(181, 118, 63, .08); color: var(--ink); }
+.edit-button svg { color: var(--accent); }
 .itinerary-heading h2, .section-heading h2, .how-section h2, .faq-section h2 { margin: 13px 0 0; font: 600 clamp(28px, 4vw, 42px)/1.06 'Space Grotesk', sans-serif; letter-spacing: -.04em; }
 .itinerary-heading .section-note, .section-heading .section-note { margin-bottom: 3px; }
 .itinerary-summary { max-width: 600px; margin: 12px 0 0; color: var(--soft); font-size: 14px; line-height: 1.65; }
+.edit-title, .edit-summary, .edit-day-title, .edit-stop textarea, .edit-stay-area input, .edit-notes input, .regenerate-day textarea { width: 100%; border: 1px solid rgba(181, 118, 63, .24); border-radius: 9px; padding: 9px 11px; background: rgba(255, 250, 242, .75); color: var(--ink); font: inherit; }
+.edit-title:focus, .edit-summary:focus, .edit-day-title:focus, .edit-stop textarea:focus, .edit-stay-area input:focus, .edit-notes input:focus, .regenerate-day textarea:focus { border-color: rgba(181, 118, 63, .72); outline: 2px solid rgba(181, 118, 63, .14); }
+.edit-title { max-width: 580px; margin-top: 12px; font: 600 clamp(25px, 3.5vw, 36px)/1.1 'Space Grotesk', sans-serif; letter-spacing: -.035em; }
+.edit-summary { min-height: 74px; margin-top: 10px; resize: vertical; color: var(--soft); font-size: 13px; line-height: 1.6; }
+.edit-day-title { max-width: 480px; font: 600 16px/1.3 'Space Grotesk', sans-serif; }
 .save-button { display: inline-flex; flex: none; align-items: center; gap: 8px; margin-top: 8px; border: 1px solid var(--line); border-radius: 999px; padding: 10px 13px; background: var(--surface); color: var(--ink); font-size: 11px; transition: background .18s ease; }
 .save-button:hover:not(:disabled) { background: var(--surface-deep); }
 .save-button svg { color: var(--accent); }
@@ -160,13 +169,29 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .day-content { padding-bottom: 27px; }
 .day-content h3, .practical-notes h3 { margin: 0; font: 600 18px/1.3 'Space Grotesk', sans-serif; letter-spacing: -.02em; }
 .day-stops { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 12px; }
+.day-stops.editing { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .day-stops p { margin: 0; color: var(--soft); font-size: 11px; line-height: 1.65; }
 .day-stops p span { display: block; margin-bottom: 4px; color: var(--ink); font-size: 10px; font-weight: 600; }
+.edit-stop { display: grid; align-content: start; gap: 6px; color: var(--ink); font-size: 10px; font-weight: 600; }
+.edit-stop textarea { min-height: 94px; resize: vertical; color: var(--soft); font-size: 11px; font-weight: 400; line-height: 1.55; }
 .stay-area { display: flex; align-items: center; gap: 5px; margin: 10px 0 0; color: var(--soft); font-size: 10px; }
 .stay-area svg { color: var(--accent); }
+.edit-stay-area { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 10px; color: var(--soft); font-size: 10px; }
+.edit-stay-area svg { flex: none; color: var(--accent); }
+.edit-stay-area input { width: min(240px, 100%); padding: 6px 8px; font-size: 10px; }
+.regenerate-day { display: grid; gap: 8px; max-width: 450px; margin-top: 13px; border-top: 1px solid var(--line); padding-top: 12px; }
+.regenerate-day > label { color: var(--soft); font-size: 10px; font-weight: 500; }
+.regenerate-day textarea { min-height: 62px; resize: vertical; font-size: 11px; line-height: 1.5; }
+.regenerate-day textarea::placeholder { color: #948879; }
+.regenerate-actions { display: flex; align-items: center; justify-content: flex-end; gap: 14px; }
+.regenerate-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 34px; border: 0; border-radius: 9px; padding: 0 11px; background: var(--ink); color: var(--paper); font-size: 10px; }
+.regenerate-button:disabled { cursor: not-allowed; opacity: .55; }
+.regeneration-error { margin: 0; color: #8a3528; font-size: 11px; line-height: 1.5; }
 .practical-notes { margin: 5px 0 8px 90px; border-radius: 14px; padding: 16px 19px; background: rgba(236, 225, 207, .55); }
 .practical-notes h3 { font-size: 14px; }
 .practical-notes ul { margin: 9px 0 0; padding-left: 17px; color: var(--soft); font-size: 11px; line-height: 1.7; }
+.edit-notes { display: grid; gap: 8px; margin-top: 10px; }
+.edit-notes input { padding: 7px 9px; font-size: 11px; }
 .text-button { display: inline-flex; align-items: center; gap: 7px; border: 0; padding: 4px 0; background: transparent; color: var(--soft); font-size: 12px; }
 .text-button:hover { color: var(--ink); }
 .start-over { margin-top: 20px; }
@@ -264,12 +289,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .chips button { padding: 7px 10px; font-size: 10px; }
   .itinerary { width: 100%; margin-top: 40px; padding: 23px 17px; }
   .itinerary-heading { display: block; }
+  .itinerary-actions { justify-content: flex-start; margin-top: 14px; }
+  .itinerary-actions .edit-button, .itinerary-actions .save-button { margin-top: 0; }
   .itinerary-heading h2 { font-size: 31px; }
   .save-button { margin-top: 17px; }
   .trip-facts { gap: 11px 15px; }
   .trip-facts span { font-size: 10px; }
   .day-row { grid-template-columns: 48px minmax(0, 1fr); gap: 8px; }
   .day-content h3 { font-size: 16px; }
+  .day-stops.editing { grid-template-columns: 1fr; }
   .practical-notes { margin-left: 0; }
   .saved-section { padding: 10px 0 65px; }
   .section-heading { align-items: flex-start; flex-direction: column; gap: 18px; }

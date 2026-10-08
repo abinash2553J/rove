@@ -11,21 +11,27 @@ import {
   Compass,
   LoaderCircle,
   MapPin,
+  Pencil,
+  RefreshCw,
+  Save,
   Users,
   Wallet,
   X,
 } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { getSupabaseBrowserClient } from '@/lib/supabase'
-import type { ItineraryDay, TravelStyle, TripPlan, TripPreferences } from '@/lib/trip-plan'
+import { isTripPlan, type ItineraryDay, type TravelStyle, type TripPlan, type TripPreferences } from '@/lib/trip-plan'
 
 type SavedTrip = {
   id: string
   title: string
   destination: string
+  prompt: string
   itinerary: TripPlan
   created_at: string
 }
+
+type EditableDayField = keyof Omit<ItineraryDay, 'day'>
 
 const promptSuggestions = [
   {
@@ -191,28 +197,74 @@ function scrollToItinerary() {
 function TripItinerary({
   plan,
   isSaved,
+  hasUnsavedChanges,
   isSaving,
   onSave,
+  onPlanChange,
+  onRegenerateDay,
   onStartOver,
 }: {
   plan: TripPlan
   isSaved: boolean
+  hasUnsavedChanges: boolean
   isSaving: boolean
   onSave: () => void
+  onPlanChange: (plan: TripPlan) => void
+  onRegenerateDay: (dayNumber: number, instruction: string) => Promise<ItineraryDay>
   onStartOver: () => void
 }) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [regeneratingDay, setRegeneratingDay] = useState<number | null>(null)
+  const [regenerationInstruction, setRegenerationInstruction] = useState('')
+  const [isRegenerating, setIsRegenerating] = useState(false)
+  const [regenerationError, setRegenerationError] = useState('')
+
+  function updatePlan(updates: Partial<TripPlan>) {
+    onPlanChange({ ...plan, ...updates })
+  }
+
+  function updateDay(dayNumber: number, field: EditableDayField, value: string) {
+    onPlanChange({
+      ...plan,
+      days: plan.days.map((day) => day.day === dayNumber ? { ...day, [field]: value } : day),
+    })
+  }
+
+  async function regenerateDay(dayNumber: number) {
+    setIsRegenerating(true)
+    setRegenerationError('')
+    try {
+      const day = await onRegenerateDay(dayNumber, regenerationInstruction)
+      setRegeneratingDay(null)
+      setRegenerationInstruction('')
+    } catch (error) {
+      setRegenerationError(error instanceof Error ? error.message : 'This day could not be regenerated.')
+    } finally {
+      setIsRegenerating(false)
+    }
+  }
+
   return (
-    <section className="itinerary" id="itinerary" aria-live="polite">
+    <section className="itinerary" id="itinerary">
       <div className="itinerary-heading">
         <div>
           <p className="section-note"><span /> YOUR ROAM, THOUGHT THROUGH</p>
-          <h2>{plan.title}</h2>
-          <p className="itinerary-summary">{plan.summary}</p>
+          {isEditing ? (
+            <input className="edit-title" aria-label="Trip title" maxLength={200} value={plan.title} onChange={(event) => updatePlan({ title: event.target.value })} />
+          ) : <h2>{plan.title}</h2>}
+          {isEditing ? (
+            <textarea className="edit-summary" aria-label="Trip summary" maxLength={1400} value={plan.summary} onChange={(event) => updatePlan({ summary: event.target.value })} />
+          ) : <p className="itinerary-summary">{plan.summary}</p>}
         </div>
-        <button className="save-button" type="button" onClick={onSave} disabled={isSaving || isSaved}>
-          {isSaving ? <LoaderCircle className="spin" size={16} /> : isSaved ? <Check size={16} /> : <Bookmark size={16} />}
-          {isSaving ? 'Saving' : isSaved ? 'Saved to your trips' : 'Save this trip'}
-        </button>
+        <div className="itinerary-actions">
+          <button className="edit-button" type="button" onClick={() => setIsEditing((editing) => !editing)}>
+            <Pencil size={14} />{isEditing ? 'Done editing' : 'Edit itinerary'}
+          </button>
+          <button className="save-button" type="button" onClick={onSave} disabled={isSaving || (isSaved && !hasUnsavedChanges)}>
+            {isSaving ? <LoaderCircle className="spin" size={16} /> : isSaved && !hasUnsavedChanges ? <Check size={16} /> : isSaved ? <Save size={16} /> : <Bookmark size={16} />}
+            {isSaving ? 'Saving' : isSaved && !hasUnsavedChanges ? 'Saved to your trips' : isSaved ? 'Save changes' : 'Save this trip'}
+          </button>
+        </div>
       </div>
 
       <div className="trip-facts">
@@ -229,13 +281,56 @@ function TripItinerary({
               <i aria-hidden="true" />
             </div>
             <div className="day-content">
-              <h3>{day.title}</h3>
-              <div className="day-stops">
-                <p><span>Morning</span>{day.morning}</p>
-                <p><span>Afternoon</span>{day.afternoon}</p>
-                <p><span>Evening</span>{day.evening}</p>
+              {isEditing ? (
+                <input className="edit-day-title" aria-label={`Day ${day.day} title`} maxLength={200} value={day.title} onChange={(event) => updateDay(day.day, 'title', event.target.value)} />
+              ) : <h3>{day.title}</h3>}
+              <div className={isEditing ? 'day-stops editing' : 'day-stops'}>
+                {(['morning', 'afternoon', 'evening'] as const).map((period) => (
+                  isEditing ? (
+                    <label className="edit-stop" key={period}>
+                      <span>{period}</span>
+                      <textarea aria-label={`Day ${day.day} ${period}`} maxLength={1000} value={day[period]} onChange={(event) => updateDay(day.day, period, event.target.value)} />
+                    </label>
+                  ) : (
+                    <p key={period}><span>{period}</span>{day[period]}</p>
+                  )
+                ))}
               </div>
-              <p className="stay-area"><MapPin size={14} /> Stay around {day.stayArea}</p>
+              {isEditing ? (
+                <label className="edit-stay-area">
+                  <MapPin size={14} />
+                  <span>Stay around</span>
+                  <input aria-label={`Day ${day.day} stay area`} maxLength={200} value={day.stayArea} onChange={(event) => updateDay(day.day, 'stayArea', event.target.value)} />
+                </label>
+              ) : <p className="stay-area"><MapPin size={14} /> Stay around {day.stayArea}</p>}
+              {isEditing && (
+                <div className="regenerate-day">
+                  {regeneratingDay === day.day ? (
+                    <>
+                      <label htmlFor={`regenerate-day-${day.day}`}>What should change about this day?</label>
+                      <textarea
+                        id={`regenerate-day-${day.day}`}
+                        maxLength={500}
+                        value={regenerationInstruction}
+                        onChange={(event) => setRegenerationInstruction(event.target.value)}
+                        placeholder="Make it slower, add more local food, avoid museums..."
+                      />
+                      <div className="regenerate-actions">
+                        <button className="text-button" type="button" onClick={() => { setRegeneratingDay(null); setRegenerationError('') }} disabled={isRegenerating}>Cancel</button>
+                        <button className="regenerate-button" type="button" onClick={() => void regenerateDay(day.day)} disabled={isRegenerating || regenerationInstruction.trim().length < 3}>
+                          {isRegenerating ? <LoaderCircle className="spin" size={14} /> : <RefreshCw size={14} />}
+                          {isRegenerating ? 'Rethinking day' : 'Regenerate day'}
+                        </button>
+                      </div>
+                      {regenerationError && <p className="regeneration-error" role="alert">{regenerationError}</p>}
+                    </>
+                  ) : (
+                    <button className="text-button" type="button" onClick={() => { setRegeneratingDay(day.day); setRegenerationInstruction(''); setRegenerationError('') }}>
+                      <RefreshCw size={13} /> Rethink this day
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </article>
         ))}
@@ -244,7 +339,19 @@ function TripItinerary({
       {plan.practicalNotes.length > 0 && (
         <aside className="practical-notes">
           <h3>A few things to know</h3>
-          <ul>{plan.practicalNotes.map((note, index) => <li key={`${index}-${note}`}>{note}</li>)}</ul>
+          {isEditing ? (
+            <div className="edit-notes">
+              {plan.practicalNotes.map((note, index) => (
+                <input
+                  aria-label={`Practical note ${index + 1}`}
+                  key={index}
+                  maxLength={300}
+                  value={note}
+                  onChange={(event) => updatePlan({ practicalNotes: plan.practicalNotes.map((current, noteIndex) => noteIndex === index ? event.target.value : current) })}
+                />
+              ))}
+            </div>
+          ) : <ul>{plan.practicalNotes.map((note, index) => <li key={`${index}-${note}`}>{note}</li>)}</ul>}
         </aside>
       )}
 
@@ -270,6 +377,7 @@ export default function Page() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [savedTripId, setSavedTripId] = useState<string | null>(null)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [user, setUser] = useState<User | null>(null)
   const [savedTrips, setSavedTrips] = useState<SavedTrip[]>([])
@@ -328,7 +436,7 @@ export default function Page() {
     let cancelled = false
     supabase
       .from('trip_plans')
-      .select('id,title,destination,itinerary,created_at')
+      .select('id,title,destination,prompt,itinerary,created_at')
       .order('created_at', { ascending: false })
       .limit(20)
       .returns<SavedTrip[]>()
@@ -350,6 +458,7 @@ export default function Page() {
     setIsGenerating(true)
     setPlan(null)
     setSavedTripId(null)
+    setHasUnsavedChanges(false)
 
     const preferences: TripPreferences = {
       prompt,
@@ -369,6 +478,7 @@ export default function Page() {
       if (!result.plan) throw new Error('The trip planner returned an empty itinerary. Please try again.')
       setPlan(result.plan)
       setPlanPrompt(preferences.prompt.trim())
+      setHasUnsavedChanges(false)
       scrollToItinerary()
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Your itinerary could not be generated. Please try again.')
@@ -385,6 +495,10 @@ export default function Page() {
       return
     }
     if (!plan) return
+    if (!isTripPlan(plan)) {
+      setErrorMessage('Finish the required trip title, summary, and itinerary fields before saving.')
+      return
+    }
     const supabase = getSupabaseBrowserClient()
     if (!supabase) {
       setErrorMessage('Saving trips needs Supabase configured. Add the public Supabase URL and key, then reload.')
@@ -394,29 +508,36 @@ export default function Page() {
     setIsSaving(true)
     setErrorMessage('')
     try {
-      const { data, error } = await supabase
-        .from('trip_plans')
-        .insert({
-          title: plan.title,
-          destination: plan.destination,
-          itinerary: plan,
-          prompt: planPrompt,
-        })
-        .select('id')
-        .single()
+      const values = {
+        title: plan.title.trim(),
+        destination: plan.destination.trim(),
+        itinerary: plan,
+        prompt: planPrompt || 'Edited saved trip',
+      }
+      const result = savedTripId
+        ? await supabase.from('trip_plans').update(values).eq('id', savedTripId).select('id').single()
+        : await supabase.from('trip_plans').insert(values).select('id').single()
 
-      if (error) {
-        console.error('Could not save trip:', error)
+      if (result.error) {
+        console.error('Could not save trip:', result.error)
         setErrorMessage('This trip could not be saved. Check the Supabase setup and try again.')
       } else {
-        setSavedTripId(data.id)
-        setSavedTrips((current) => [{
-          id: data.id,
-          title: plan.title,
-          destination: plan.destination,
-          itinerary: plan,
-          created_at: new Date().toISOString(),
-        }, ...current])
+        const tripId = result.data.id
+        setSavedTripId(tripId)
+        setHasUnsavedChanges(false)
+        setSavedTrips((current) => {
+          const updatedTrip: SavedTrip = {
+            id: tripId,
+            title: plan.title,
+            destination: plan.destination,
+            prompt: planPrompt,
+            itinerary: plan,
+            created_at: current.find((trip) => trip.id === tripId)?.created_at ?? new Date().toISOString(),
+          }
+          return savedTripId
+            ? current.map((trip) => trip.id === tripId ? updatedTrip : trip)
+            : [updatedTrip, ...current]
+        })
       }
     } catch (error) {
       console.error('Could not save trip:', error)
@@ -424,6 +545,32 @@ export default function Page() {
     } finally {
       setIsSaving(false)
     }
+  }
+
+  async function handleRegenerateDay(dayNumber: number, instruction: string): Promise<ItineraryDay> {
+    if (!plan) throw new Error('Generate an itinerary before regenerating a day.')
+
+    let response: Response
+    try {
+      response = await fetch('/api/plan/regenerate-day', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan, dayNumber, instruction }),
+      })
+    } catch (error) {
+      console.error('Could not reach day regeneration endpoint:', error)
+      throw new Error('Could not reach the trip planner. Check your connection and try again.')
+    }
+
+    const result = await response.json() as { day?: ItineraryDay; error?: string }
+    if (!response.ok) throw new Error(result.error ?? 'This day could not be regenerated.')
+    if (!result.day || result.day.day !== dayNumber) throw new Error('The trip planner returned an invalid day. Please try again.')
+    const regeneratedDay = result.day
+    setPlan((current) => current
+      ? { ...current, days: current.days.map((day) => day.day === dayNumber ? regeneratedDay : day) }
+      : current)
+    setHasUnsavedChanges(true)
+    return regeneratedDay
   }
 
   async function handleEmailSignIn(event: FormEvent<HTMLFormElement>) {
@@ -505,9 +652,10 @@ export default function Page() {
 
   function openSavedTrip(trip: SavedTrip) {
     setPlan(trip.itinerary)
-    setPlanPrompt('')
+    setPlanPrompt(trip.prompt)
     setPrompt('')
     setSavedTripId(trip.id)
+    setHasUnsavedChanges(false)
     scrollToItinerary()
   }
 
@@ -515,6 +663,7 @@ export default function Page() {
     setPlan(null)
     setPlanPrompt('')
     setSavedTripId(null)
+    setHasUnsavedChanges(false)
     setErrorMessage('')
     promptRef.current?.focus()
     const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
@@ -693,8 +842,14 @@ export default function Page() {
           <TripItinerary
             plan={plan}
             isSaved={Boolean(savedTripId)}
+            hasUnsavedChanges={hasUnsavedChanges}
             isSaving={isSaving}
             onSave={handleSave}
+            onPlanChange={(updatedPlan) => {
+              setPlan(updatedPlan)
+              setHasUnsavedChanges(true)
+            }}
+            onRegenerateDay={handleRegenerateDay}
             onStartOver={startOver}
           />
         )}

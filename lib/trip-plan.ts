@@ -28,6 +28,20 @@ export type TripPlan = {
   practicalNotes: string[]
 }
 
+export function isItineraryDay(value: unknown): value is ItineraryDay {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const day = value as Record<string, unknown>
+  return (
+    typeof day.day === 'number' &&
+    Number.isInteger(day.day) &&
+    isBoundedText(day.title, 200) &&
+    isBoundedText(day.morning, 1000) &&
+    isBoundedText(day.afternoon, 1000) &&
+    isBoundedText(day.evening, 1000) &&
+    isBoundedText(day.stayArea, 200)
+  )
+}
+
 function isBoundedText(value: unknown, maxLength: number): value is string {
   return typeof value === 'string' && value.trim().length > 0 && value.length <= maxLength
 }
@@ -46,15 +60,7 @@ export function isTripPlan(value: unknown): value is TripPlan {
     Array.isArray(plan.days) &&
     plan.days.length >= 1 && plan.days.length <= 21 &&
     plan.days.every((day) => {
-      if (typeof day !== 'object' || day === null || Array.isArray(day)) return false
-      const item = day as Record<string, unknown>
-      return (
-        typeof item.day === 'number' &&
-        Number.isInteger(item.day) &&
-        ['title', 'morning', 'afternoon', 'evening', 'stayArea'].every((key) =>
-          isBoundedText(item[key], 1000)
-        )
-      )
+      return isItineraryDay(day)
     }) &&
     Array.isArray(plan.practicalNotes) &&
     plan.practicalNotes.length <= 10 &&
