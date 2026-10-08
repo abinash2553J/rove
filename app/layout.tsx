@@ -4,33 +4,16 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'ROVE — Your AI trip planner',
-  description: 'Tell ROVE where you are headed and get a trip built just for you.',
-  generator: 'v0.app',
+  description: 'Describe the trip you want, get a day-by-day itinerary shaped around your pace, and save your plans with ROVE.',
   icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
+    icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
     apple: '/apple-icon.png',
   },
 }
 
 export const viewport: Viewport = {
-  colorScheme: 'light dark',
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: 'white' },
-    { media: '(prefers-color-scheme: dark)', color: 'black' },
-  ],
+  colorScheme: 'light',
+  themeColor: '#f4ede1',
 }
 
 export default function RootLayout({
