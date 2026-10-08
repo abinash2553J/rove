@@ -169,6 +169,20 @@ export default function Page() {
   const promptRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const oauthError = params.get('error')
+    const oauthErrorCode = params.get('error_code')
+    if (oauthError || oauthErrorCode) {
+      const message = oauthErrorCode === 'unexpected_failure'
+        ? 'Supabase received the Google callback but could not exchange its authorization code. Check that the Google OAuth client ID and client secret in Supabase belong to the same Google Cloud Web client, and that its authorized redirect URI exactly matches the callback shown in Supabase.'
+        : 'Google sign-in did not complete. Check the Google OAuth provider settings in Supabase and try again.'
+      setAuthError(message)
+      setAuthOpen(true)
+      window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.hash}`)
+    }
+  }, [])
+
+  useEffect(() => {
     const supabase = getSupabaseBrowserClient()
     if (!supabase) {
       setSupabaseConfigured(false)
