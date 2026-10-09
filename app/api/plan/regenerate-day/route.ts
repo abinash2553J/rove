@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server'
+import { consumeRateLimit, getClientKey } from '@/lib/rate-limit'
 import { isItineraryDay, isTripPlan } from '@/lib/trip-plan'
 
 export const runtime = 'nodejs'
 
 export async function POST(request: Request) {
+  const clientKey = getClientKey(request)
+  if (!consumeRateLimit(`regen:${clientKey}`, 30, 60_000)) {
+    return NextResponse.json({ error: 'Too many day regenerations right now. Please wait a minute and try again.' }, { status: 429 })
+  }
+
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
     return NextResponse.json({ error: 'Trip generation is not configured yet. Add GEMINI_API_KEY to the server environment.' }, { status: 503 })

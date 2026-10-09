@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { consumeRateLimit, getClientKey } from '@/lib/rate-limit'
 import { isISODate, isTripPlan, type TripPreferences } from '@/lib/trip-plan'
 
 export const runtime = 'nodejs'
@@ -30,6 +31,11 @@ function isTripPreferences(value: unknown): value is TripPreferences {
 }
 
 export async function POST(request: Request) {
+  const clientKey = getClientKey(request)
+  if (!consumeRateLimit(`plan:${clientKey}`, 10, 60_000)) {
+    return NextResponse.json({ error: 'Too many trip requests right now. Please wait a minute and try again.' }, { status: 429 })
+  }
+
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
     return NextResponse.json({ error: 'Trip generation is not configured yet. Add GEMINI_API_KEY to the server environment.' }, { status: 503 })

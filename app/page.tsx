@@ -34,6 +34,7 @@ type SavedTrip = {
   prompt: string
   itinerary: TripPlan
   created_at: string
+  updated_at: string
   share_token: string | null
 }
 
@@ -574,6 +575,7 @@ export default function Page() {
   const [isSaving, setIsSaving] = useState(false)
   const [isSharing, setIsSharing] = useState(false)
   const [savedTripId, setSavedTripId] = useState<string | null>(null)
+  const [savedTripUpdatedAt, setSavedTripUpdatedAt] = useState<string | null>(null)
   const [shareToken, setShareToken] = useState<string | null>(null)
   const [shareError, setShareError] = useState('')
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -656,7 +658,7 @@ export default function Page() {
     let cancelled = false
     supabase
       .from('trip_plans')
-      .select('id,title,destination,prompt,itinerary,created_at,share_token')
+      .select('id,title,destination,prompt,itinerary,created_at,updated_at,share_token')
       .order('created_at', { ascending: false })
       .limit(20)
       .returns<SavedTrip[]>()
@@ -682,6 +684,7 @@ export default function Page() {
     setIsGenerating(true)
     setPlan(null)
     setSavedTripId(null)
+    setSavedTripUpdatedAt(null)
     setShareToken(null)
     setShareError('')
     setHasUnsavedChanges(false)
@@ -742,34 +745,47 @@ export default function Page() {
         prompt: planPrompt || 'Edited saved trip',
       }
       const result = savedTripId
-        ? await supabase.from('trip_plans').update(values).eq('id', savedTripId).select('id,share_token').single()
-        : await supabase.from('trip_plans').insert(values).select('id,share_token').single()
+        ? await supabase
+          .from('trip_plans')
+          .update(values)
+          .eq('id', savedTripId)
+          .eq('updated_at', savedTripUpdatedAt ?? '1970-01-01T00:00:00.000Z')
+          .select('id,share_token,updated_at')
+          .single()
+        : await supabase.from('trip_plans').insert(values).select('id,share_token,updated_at').single()
 
       if (result.error) {
+        if (savedTripId && result.error.code === 'PGRST116') {
+          setErrorMessage('This trip changed since you last opened it. Refresh it and save again.')
+          return null
+        }
         console.error('Could not save trip:', result.error)
         setErrorMessage('This trip could not be saved. Check the Supabase setup and try again.')
         return null
-      } else {
-        const tripId = result.data.id
-        setSavedTripId(tripId)
-        setShareToken(result.data.share_token)
-        setHasUnsavedChanges(false)
-        setSavedTrips((current) => {
-          const updatedTrip: SavedTrip = {
-            id: tripId,
-            title: plan.title,
-            destination: plan.destination,
-            prompt: planPrompt,
-            itinerary: plan,
-            created_at: current.find((trip) => trip.id === tripId)?.created_at ?? new Date().toISOString(),
-            share_token: result.data.share_token,
-          }
-          return savedTripId
-            ? current.map((trip) => trip.id === tripId ? updatedTrip : trip)
-            : [updatedTrip, ...current]
-        })
-        return tripId
       }
+
+      const tripId = result.data.id
+      const nextUpdatedAt = result.data.updated_at ?? new Date().toISOString()
+      setSavedTripId(tripId)
+      setSavedTripUpdatedAt(nextUpdatedAt)
+      setShareToken(result.data.share_token)
+      setHasUnsavedChanges(false)
+      setSavedTrips((current) => {
+        const updatedTrip: SavedTrip = {
+          id: tripId,
+          title: plan.title,
+          destination: plan.destination,
+          prompt: planPrompt,
+          itinerary: plan,
+          created_at: current.find((trip) => trip.id === tripId)?.created_at ?? new Date().toISOString(),
+          updated_at: nextUpdatedAt,
+          share_token: result.data.share_token,
+        }
+        return savedTripId
+          ? current.map((trip) => trip.id === tripId ? updatedTrip : trip)
+          : [updatedTrip, ...current]
+      })
+      return tripId
     } catch (error) {
       console.error('Could not save trip:', error)
       setErrorMessage('This trip could not be saved because Supabase could not be reached.')
@@ -972,6 +988,7 @@ export default function Page() {
     setPlanPrompt(trip.prompt)
     setPrompt('')
     setSavedTripId(trip.id)
+    setSavedTripUpdatedAt(trip.updated_at)
     setShareToken(trip.share_token)
     setShareError('')
     setHasUnsavedChanges(false)
@@ -982,6 +999,7 @@ export default function Page() {
     setPlan(null)
     setPlanPrompt('')
     setSavedTripId(null)
+    setSavedTripUpdatedAt(null)
     setShareToken(null)
     setShareError('')
     setHasUnsavedChanges(false)
