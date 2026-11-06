@@ -16,6 +16,7 @@ import {
   LoaderCircle,
   MapPin,
   Pencil,
+  ReceiptIndianRupee,
   RefreshCw,
   Save,
   Users,
@@ -343,11 +344,7 @@ function formatBudget(amount: number, currency: string) {
 }
 
 function RoveMark({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
-      <path d="M464 256a208 208 0 1 0 -416 0 208 208 0 1 0 416 0zM0 256a256 256 0 1 1 512 0 256 256 0 1 1 -512 0zm306.7 69.1L162.4 380.6c-19.4 7.5-38.5-11.6-31-31l55.5-144.3c3.3-8.5 9.9-15.1 18.4-18.4l144.3-55.5c19.4-7.5 38.5 11.6 31 31L325.1 306.7c-3.3 8.5-9.9 15.1-18.4 18.4zM288 256a32 32 0 1 0 -64 0 32 32 0 1 0 64 0z" />
-    </svg>
-  )
+  return <img className={className} src="/icon.svg" alt="" aria-hidden="true" />
 }
 
 function scrollToItinerary() {
@@ -355,6 +352,13 @@ function scrollToItinerary() {
   requestAnimationFrame(() => {
     document.getElementById('itinerary')?.scrollIntoView({ behavior, block: 'start' })
   })
+}
+
+function getSignInRedirectUrl() {
+  const inviteToken = new URLSearchParams(window.location.search).get('invite')
+  return inviteToken
+    ? `${window.location.origin}/split/invite/${encodeURIComponent(inviteToken)}`
+    : window.location.origin
 }
 
 function TripItinerary({
@@ -371,6 +375,7 @@ function TripItinerary({
   onPlanChange,
   onRegenerateDay,
   onStartOver,
+  splitTripId,
 }: {
   plan: TripPlan
   isSaved: boolean
@@ -385,6 +390,7 @@ function TripItinerary({
   onPlanChange: (plan: TripPlan) => void
   onRegenerateDay: (dayNumber: number, instruction: string) => Promise<ItineraryDay>
   onStartOver: () => void
+  splitTripId: string | null
 }) {
   const [isEditing, setIsEditing] = useState(false)
   const [shareUrl, setShareUrl] = useState('')
@@ -435,6 +441,11 @@ function TripItinerary({
           ) : <p className="itinerary-summary">{plan.summary}</p>}
         </div>
         <div className="itinerary-actions">
+          {splitTripId && (
+            <a className="edit-button split-trip-link" href={`/split/${splitTripId}`}>
+              <ReceiptIndianRupee size={14} /> Split expenses
+            </a>
+          )}
           <button className="edit-button share-button" type="button" onClick={onShare} disabled={isSharing}>
             {isSharing ? <LoaderCircle className="spin" size={14} /> : shareToken ? <Copy size={14} /> : <Link2 size={14} />}
             {isSharing ? 'Preparing link' : shareToken ? 'Copy link' : isSaved ? 'Share trip' : 'Save & share'}
@@ -614,15 +625,24 @@ export default function Page() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
+    const inviteToken = params.get('invite')
     const oauthError = params.get('error')
     const oauthErrorCode = params.get('error_code')
+    if (inviteToken) {
+      setAuthMessage('Sign in to join your group’s shared trip expenses.')
+      setAuthOpen(true)
+    }
     if (oauthError || oauthErrorCode) {
       const message = oauthErrorCode === 'unexpected_failure'
         ? 'Supabase received the Google callback but could not exchange its authorization code. Check that the Google OAuth client ID and client secret in Supabase belong to the same Google Cloud Web client, and that its authorized redirect URI exactly matches the callback shown in Supabase.'
         : 'Google sign-in did not complete. Check the Google OAuth provider settings in Supabase and try again.'
       setAuthError(message)
       setAuthOpen(true)
-      window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.hash}`)
+      window.history.replaceState(
+        window.history.state,
+        '',
+        `${window.location.pathname}${inviteToken ? `?invite=${encodeURIComponent(inviteToken)}` : ''}${window.location.hash}`,
+      )
     }
   }, [])
 
@@ -921,7 +941,7 @@ export default function Page() {
     try {
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
-        options: { emailRedirectTo: window.location.origin },
+        options: { emailRedirectTo: getSignInRedirectUrl() },
       })
       if (error) {
         console.error('Supabase email sign-in failed:', error)
@@ -952,7 +972,7 @@ export default function Page() {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.origin },
+        options: { redirectTo: getSignInRedirectUrl() },
       })
       if (error) {
         console.error('Google sign-in failed:', error)
@@ -1189,6 +1209,7 @@ export default function Page() {
         {plan && (
           <TripItinerary
             plan={plan}
+            splitTripId={savedTripId}
             isSaved={Boolean(savedTripId)}
             hasUnsavedChanges={hasUnsavedChanges}
             isSaving={isSaving}
@@ -1282,7 +1303,7 @@ export default function Page() {
             <button className="modal-close" type="button" aria-label="Close sign-in window" onClick={() => setAuthOpen(false)}><X size={18} /></button>
             <span className="modal-mark"><RoveMark /></span>
             <p className="section-note"><span /> KEEP THE GOOD ONES</p>
-            <h2 id="auth-title">Your trips, right where you left them.</h2>
+            <h2 id="auth-title">{new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search).has('invite') ? 'Sign in to join your group trip.' : 'Your trips, right where you left them.'}</h2>
             <p className="auth-copy">Sign in with Google or get a secure link by email.</p>
             <button className="google-sign-in" type="button" onClick={handleGoogleSignIn} disabled={authBusy || !supabaseConfigured}>
               {authProvider === 'google' ? <LoaderCircle className="spin" size={17} /> : (

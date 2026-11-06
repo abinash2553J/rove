@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ArrowLeft, ArrowUpRight, CalendarDays, Clock3, Compass, LoaderCircle, MapPin, Wallet } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, CalendarDays, Clock3, LoaderCircle, MapPin, Wallet } from 'lucide-react'
 import { DestinationMap } from '@/app/components/destination-map'
 import { isTripPlan, type TripPlan } from '@/lib/trip-plan'
 
@@ -60,7 +60,7 @@ export default function SharedTripPage({ params }: { params: Promise<{ token: st
     <main className="shared-page">
       <div className="shared-shell">
         <header className="shared-nav">
-          <a className="wordmark" href="/"><Compass className="brand-mark" />ROVE</a>
+          <a className="wordmark" href="/"><img className="brand-mark" src="/icon.svg" alt="" aria-hidden="true" />ROVE</a>
           <span>Trip shared with you</span>
         </header>
 
